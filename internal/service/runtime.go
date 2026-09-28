@@ -17,6 +17,7 @@ import (
 	"github.com/wyw14/solo-038/internal/register"
 	"github.com/wyw14/solo-038/internal/sensor"
 	"github.com/wyw14/solo-038/internal/splice"
+	"github.com/wyw14/solo-038/internal/trial"
 	"github.com/wyw14/solo-038/internal/unwind"
 	"github.com/wyw14/solo-038/internal/web"
 )
@@ -55,6 +56,8 @@ type Runtime struct {
 	folderControl   *folder.Controller
 	splice          *splice.State
 	spliceControl   *splice.Coordinator
+	trials          *trial.State
+	production      *trial.ProductionStore
 	incidents       []Incident
 }
 
@@ -84,6 +87,8 @@ func NewRuntime(config Config) (*Runtime, error) {
 	runtime := &Runtime{startedAt: time.Now().UTC(), config: config, journal: journalStore, jobs: jobState, jobControl: job.NewCoordinator(jobState, dryerState), sensors: sensor.NewState(), unwind: unwindState, loader: unwind.NewLoader(unwindState), festoon: festoon, web: webState, webControl: web.NewCoordinator(webState, path), press: pressState, pressUnits: pressController, pressControl: press.NewCoordinator(pressController, pressState), phase: press.NewPhaseController(pressState, 2.5), ink: inkState, register: registerState, registerControl: register.NewCoordinator(registerState, journalStore), dryer: dryerState, dryerControl: dryer.NewCoordinator(dryerState), folder: folderState, folderControl: folder.NewController(folderState), splice: spliceState}
 	runtime.inkControl = ink.NewCoordinator(ink.NewCircuit(inkState))
 	runtime.spliceControl = splice.NewCoordinator(spliceState, festoon, splice.NewLeaseManager())
+	runtime.trials = trial.NewState()
+	runtime.production = trial.NewProductionStore()
 	return runtime, nil
 }
 

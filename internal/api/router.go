@@ -25,6 +25,14 @@ func NewRouter(runtime *service.Runtime) http.Handler {
 		api.Get("/incidents", handler.incidents)
 		api.Get("/recovery", handler.recoveryStatus)
 		api.Post("/jobs/current/cancel", handler.cancelCurrent)
+		api.Get("/trials", handler.listTrials)
+		api.Post("/trials", handler.createTrial)
+		api.Get("/trials/{trial}", handler.getTrial)
+		api.Post("/trials/{trial}/groups", handler.addTrialGroup)
+		api.Post("/trials/{trial}/groups/{group}/results", handler.recordTrialResult)
+		api.Get("/trials/{trial}/comparison", handler.trialComparison)
+		api.Post("/trials/{trial}/approve", handler.approveTrial)
+		api.Get("/production-config", handler.productionConfig)
 	})
 	return router
 }

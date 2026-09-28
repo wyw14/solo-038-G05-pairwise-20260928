@@ -89,13 +89,14 @@ func (runtime *Runtime) loadRollOperation(current model.Job) error {
 
 func (runtime *Runtime) feedWebOperation(ctx context.Context, current model.Job) error {
 	now := time.Now()
+	production := runtime.productionSettings(current, runtime.currentPlateGeneration(current))
 	forceA := sensor.Reading{ID: string(model.NewOperationID()), Kind: sensor.ReadingForce, Source: "load-cell-a", Origin: "load-cell-a", Value: 90, Unit: "N", ObservedAt: now}
 	forceB := sensor.Reading{ID: string(model.NewOperationID()), Kind: sensor.ReadingForce, Source: "load-cell-b", Origin: "load-cell-b", Value: 91, Unit: "N", ObservedAt: now}
 	tension, err := sensor.DeriveTension(forceA, 10, string(model.NewOperationID()))
 	if err != nil {
 		return err
 	}
-	speed := sensor.Reading{ID: string(model.NewOperationID()), Kind: sensor.ReadingSpeed, Source: "traction-encoder", Origin: "traction-encoder", Value: 8, Unit: "m/s", ObservedAt: now}
+	speed := sensor.Reading{ID: string(model.NewOperationID()), Kind: sensor.ReadingSpeed, Source: "traction-encoder", Origin: "traction-encoder", Value: production.Speed, Unit: "m/s", ObservedAt: now}
 	runtime.sensors.PutReading(forceA)
 	runtime.sensors.PutReading(forceB)
 	runtime.sensors.PutReading(tension)
@@ -113,14 +114,14 @@ func (runtime *Runtime) feedWebOperation(ctx context.Context, current model.Job)
 	if rollGeneration == 0 {
 		rollGeneration = current.RollGeneration
 	}
-	if err := unwind.ApplyFeed(runtime.unwind, string(current.ID), rollGeneration, 8, status); err != nil {
+	if err := unwind.ApplyFeed(runtime.unwind, string(current.ID), rollGeneration, production.Speed, status); err != nil {
 		return err
 	}
 	if err := runtime.webControl.Advance(string(current.ID), 1, permit, now); err != nil {
 		return err
 	}
 	loopCtx, cancel := context.WithCancel(ctx)
-	result := web.RunControlLoop(loopCtx, time.Millisecond, 8, func(float64) {})
+	result := web.RunControlLoop(loopCtx, time.Millisecond, production.Speed, func(float64) {})
 	cancel()
 	if _, err := web.AwaitWorker(context.Background(), result); err != nil {
 		return err
@@ -230,7 +231,7 @@ func (runtime *Runtime) switchInkOperation(withFault bool) error {
 }
 
 func (runtime *Runtime) startDryerOperation(ctx context.Context, current model.Job) error {
-	profile := dryer.Profile{Name: "production", Zones: []dryer.Zone{{Name: "entry", Temperature: 80, Airflow: 20}, {Name: "exit", Temperature: 100, Airflow: 24}}}
+	profile := runtime.productionSettings(current, runtime.currentPlateGeneration(current)).Profile
 	if profile.MaximumTemperature() <= 0 || profile.AverageAirflow() <= 0 {
 		return fmt.Errorf("dryer profile is invalid")
 	}
